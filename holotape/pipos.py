@@ -85,6 +85,8 @@ class Holotape:
                 self.averagecpu.pop(0)
             if len(self.averagemem) > 30:
                 self.averagemem.pop(0)
+                
+            self.playlistselected = 0
 
             Result = self.draw()
             if Result:
@@ -148,10 +150,26 @@ class Holotape:
                 txt("RADIO", (offsetconst + 280, 0), self.font, 24, "underline")
             ]
             
+            if len(self.playlistlist) == 0:
+                txtlist.append(txt("No Playlists Found", (0, 200), self.font, 20))
+            elif len(self.playlistlist) < 6:
+                for i, playlist in enumerate(self.playlistlist):
+                    txtlist.append(txt(playlist[0], (0, 72 + i * 36), self.font, 20))
+            
             upbutton = button("/\\", (0, 36), 24, self.font)
             downbutton = button("\/", (0, 280), 24, self.font)
             upbutton.draw(self.Surface)
             downbutton.draw(self.Surface)
+            if upbutton.update():
+                if self.playlistselected > 0:
+                    self.playlistselected -= 1
+                else:
+                    self.playlistselected = len(self.playlistlist) - 1
+            if downbutton.update():
+                if self.playlistselected < len(self.playlistlist) - 1:
+                    self.playlistselected += 1
+                else:
+                    self.playlistselected = 0
             
         for t in txtlist:
                 t.draw(self.Surface)
