@@ -11,7 +11,7 @@ def LoadApp(Path, Screen, OverlaySurface):
         Spec = importlib.util.spec_from_file_location("holotape", Path)
         Mod = importlib.util.module_from_spec(Spec)
         Spec.loader.exec_module(Mod)
-        App = Mod.Holotape(OverlaySurface, BASE_DIR + "\monofonto.ttf")
+        App = Mod.Holotape(OverlaySurface, os.path.join(BASE_DIR, "monofonto.ttf"))
         WhatNext = App.Main(Screen)
         return WhatNext
     except Exception as e:
@@ -23,7 +23,7 @@ def main():
     pygame.init()
     Screen = pygame.display.set_mode((480, 320))
     OverlaySurface = pygame.Surface((480, 320))
-    font = pygame.font.Font(BASE_DIR + "\monofonto_fixed.ttf", 36)
+    font = pygame.font.Font(os.path.join(BASE_DIR, "monofonto_fixed.ttf"), 36)
 
     print("Welcome To PipOS")
     WhatNext = LoadApp(os.path.join(HOLOTAPE_DIR, "pipos.py"), Screen, OverlaySurface)
