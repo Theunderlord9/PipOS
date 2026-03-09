@@ -1,5 +1,4 @@
 import os
-
 import pygame
 import psutil
 import json
@@ -55,13 +54,6 @@ class Holotape:
         self.Surface = OverlaySurface
         self.font = font # Now Font Path Instead Of Font Obj Cause Python Is Stupid
         self.LastPage = None
-        
-        playlistjsonlist = [f for f in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "radio/playlists")) if f.endswith(".json")]
-        self.playlistlist = []
-        for file in playlistjsonlist:
-            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "radio/playlists", file), "r") as f:
-                data = json.load(f)
-                self.playlistlist.append((data[0]["name"], data[0]["songlist"]))
 
     def Main(self, Screen):
         Clock = pygame.time.Clock()
@@ -73,6 +65,8 @@ class Holotape:
 
         self.averagecpu = []
         self.averagemem = []
+        self.playlistselected = 0
+        self.tapeselected = 0
         
         while True:
             for Event in pygame.event.get():
@@ -85,8 +79,6 @@ class Holotape:
                 self.averagecpu.pop(0)
             if len(self.averagemem) > 30:
                 self.averagemem.pop(0)
-                
-            self.playlistselected = 0
 
             Result = self.draw()
             if Result:
@@ -124,6 +116,36 @@ class Holotape:
                 txt("MAP", (offsetconst + 217, 0), self.font, 24),
                 txt("RADIO", (offsetconst + 280, 0), self.font, 24)
             ]
+            
+            tapelist = [f for f in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)))) if f.endswith(".py") and f != "pipos.py"]
+            upbutton = button("/\\", (0, 36), 24, self.font)
+            downbutton = button("\/", (0, 280), 24, self.font)
+            load = button("LOAD TAPE", (420, 280), 24, self.font)
+            upbutton.draw(self.Surface)
+            downbutton.draw(self.Surface)
+            load.draw(self.Surface)
+            if upbutton.update():
+                if self.tapeselected > 0:
+                    self.tapeselected -= 1
+                else:
+                    self.tapeselected = len(tapelist) - 1
+            if downbutton.update():
+                if self.tapeselected < len(tapelist) - 1:
+                    self.tapeselected += 1
+                else:
+                    self.tapeselected = 0
+                    
+            if load.update() and len(tapelist) > 0:
+                return tapelist[self.tapeselected]
+                    
+            if len(tapelist) == 0:
+                txtlist.append(txt("No Tapes Found", (0, 200), self.font, 20))
+            elif len(tapelist) < 6:
+                for i, tape in enumerate(tapelist):
+                    txtlist.append(txt(tape, (0, 72 + i * 36), self.font, 20))
+                    if i == self.tapeselected:
+                        txtlist[-1].effect = "underline"
+            
         elif self.PageNum == 2:
             txtlist = [
                 txt("STAT", (offsetconst, 0), self.font, 24),
@@ -150,11 +172,25 @@ class Holotape:
                 txt("RADIO", (offsetconst + 280, 0), self.font, 24, "underline")
             ]
             
-            if len(self.playlistlist) == 0:
+            playlistjsonlist = [f for f in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "radio/playlists")) if f.endswith(".json")]
+            playlistlist = []
+            for file in playlistjsonlist:
+                with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "radio/playlists", file), "r") as f:
+                    data = json.load(f)
+                    playlistlist.append((data[0]["name"], data[0]["songlist"]))
+            
+            if len(playlistlist) == 0:
                 txtlist.append(txt("No Playlists Found", (0, 200), self.font, 20))
-            elif len(self.playlistlist) < 6:
-                for i, playlist in enumerate(self.playlistlist):
+            elif len(playlistlist) < 6:
+                for i, playlist in enumerate(playlistlist):
                     txtlist.append(txt(playlist[0], (0, 72 + i * 36), self.font, 20))
+                    if i == self.playlistselected:
+                        txtlist[-1].effect = "underline"
+            else:
+                for i in range(6):
+                    txtlist.append(txt(str(playlistlist[self.playlistselected + i][0]), (0, 72 + i * 36), self.font, 20))
+                    if i == self.playlistselected:
+                        txtlist[-1].effect = "underline"
             
             upbutton = button("/\\", (0, 36), 24, self.font)
             downbutton = button("\/", (0, 280), 24, self.font)
@@ -163,11 +199,15 @@ class Holotape:
             if upbutton.update():
                 if self.playlistselected > 0:
                     self.playlistselected -= 1
+                    print(self.playlistselected)
+                    print("UP")
                 else:
-                    self.playlistselected = len(self.playlistlist) - 1
+                    self.playlistselected = len(playlistlist) - 1
             if downbutton.update():
-                if self.playlistselected < len(self.playlistlist) - 1:
+                if self.playlistselected < len(playlistlist) - 1:
                     self.playlistselected += 1
+                    print(self.playlistselected)
+                    print("DOWN")
                 else:
                     self.playlistselected = 0
             
