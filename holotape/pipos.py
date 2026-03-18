@@ -2,6 +2,12 @@ import os
 import pygame
 import psutil
 import json
+import urllib.request
+import subprocess
+import requests
+import math
+import io
+from PIL import Image
 
 class button:
     def __init__(self, text, pos, charsize, font):
@@ -48,12 +54,116 @@ class txt:
         if self.effect == "underline":
             pygame.draw.line(surface, (0, 200, 50), (self.pos[0], self.pos[1] + Text.get_height()), (self.pos[0] + Text.get_width(), self.pos[1] + Text.get_height()), 3)
 
+def ScanWifi():
+    import platform
+    if platform.system() == "Windows":
+        result = subprocess.run(["netsh", "wlan", "show", "networks", "mode=bssid"], capture_output=True, text=True)
+    else:
+        result = subprocess.run(["iwlist", "wlan0", "scan"], capture_output=True, text=True)
+
+    lines = result.stdout.splitlines()
+    networks = []
+    current = {}
+
+    for line in lines:
+        line = line.strip()
+        if platform.system() == "Windows":
+            if line.startswith("BSSID"):
+                if current:
+                    networks.append(current)
+                current = {"macAddress": line.split(":")[1].strip()}
+            elif line.startswith("Signal"):
+                try:
+                    signal = int(line.split(":")[1].strip().replace("%", ""))
+                    current["signalStrength"] = (signal // 2) - 100
+                except:
+                    pass
+        else:
+            if "Cell" in line and "Address:" in line:
+                if current:
+                    networks.append(current)
+                current = {"macAddress": line.split("Address:")[1].strip()}
+            elif "Signal level=" in line:
+                try:
+                    signal = line.split("Signal level=")[1].split(" ")[0]
+                    current["signalStrength"] = int(signal)
+                except:
+                    pass
+
+    if current:
+        networks.append(current)
+
+    return networks
+
+def GetLocation(ApiKey):
+    aps = ScanWifi()
+    
+    payload = json.dumps({
+        "wifiAccessPoints": aps
+    }).encode("utf-8")
+    
+    req = urllib.request.Request(
+        f"https://www.googleapis.com/geolocation/v1/geolocate?key={ApiKey}",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    
+    with urllib.request.urlopen(req) as response:
+        data = json.loads(response.read())
+    
+    lat = data["location"]["lat"]
+    lng = data["location"]["lng"]
+    acc = data["accuracy"]
+    
+    return lat, lng, acc
 class Holotape:
     def __init__(self, OverlaySurface, font):
         self.PageNum = 0
         self.Surface = OverlaySurface
-        self.font = font # Now Font Path Instead Of Font Obj Cause Python Is Stupid
+        self.font = font 
         self.LastPage = None
+        self.TileCache = {}
+        self.Lat, self.Lng ,self.Acc = GetLocation()
+        
+    def DrawMap(self, screen, rect, lat, lng, zoom=15):
+        TileSize = 256
+        surface = screen.subsurface(rect)
+        sw, sh = rect.width, rect.height
+
+        n = 2 ** zoom
+        totalX = (lng + 180) / 360 * n
+        totalY = (1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * n
+
+        cx, cy = int(totalX), int(totalY)
+        offsetX = int((totalX - cx) * TileSize)
+        offsetY = int((totalY - cy) * TileSize)
+
+        startX = sw // 2 - offsetX
+        startY = sh // 2 - offsetY
+
+        tilesX = math.ceil(sw / TileSize) + 2
+        tilesY = math.ceil(sh / TileSize) + 2
+
+        for dx in range(-tilesX // 2, tilesX // 2 + 1):
+            for dy in range(-tilesY // 2, tilesY // 2 + 1):
+                tile = self.FetchTile(cx + dx, cy + dy, zoom)
+                surface.blit(tile, (startX + dx * TileSize, startY + dy * TileSize))
+
+        pygame.draw.circle(surface, (255, 0, 0), (sw // 2, sh // 2), 8)
+        pygame.draw.circle(surface, (255, 255, 255), (sw // 2, sh // 2), 4)
+
+    def FetchTile(self, x, y, z):
+        key = (x, y, z)
+        if key in self.TileCache:
+            return self.TileCache[key]
+        url = f"https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        headers = {"User-Agent": "MyPygameMap/1.0"}
+        response = requests.get(url, headers=headers)
+        img = Image.open(io.BytesIO(response.content)).convert("RGBA")
+        tile = pygame.image.fromstring(img.tobytes(), img.size, "RGBA")
+        self.TileCache[key] = tile
+        return tile
 
     def Main(self, Screen):
         Clock = pygame.time.Clock()
@@ -162,6 +272,8 @@ class Holotape:
                 txt("MAP", (offsetconst + 217, 0), self.font, 24, "underline"),
                 txt("RADIO", (offsetconst + 280, 0), self.font, 24)
             ]
+            self.Lat, self.Lng ,self.Acc = GetLocation()
+            self.DrawMap(self.DrawMap(self.Surface, pygame.Rect(0, 36, self.Surface.get_width(), self.Surface.get_height() - 36), self.Lat, self.Lng))
         elif self.PageNum == 4:
             txtlist = [
                 txt("STAT", (offsetconst, 0), self.font, 24),

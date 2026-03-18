@@ -1,2 +1,3 @@
 /holotape/radio/playlists/*
 /holotape/radio/songs/*
+/holotape/__pycache__
