@@ -96,6 +96,7 @@ def ScanWifi():
     return networks
 
 def GetLocation(ApiKey):
+    return
     aps = ScanWifi()
     
     payload = json.dumps({
@@ -124,7 +125,11 @@ class Holotape:
         self.font = font 
         self.LastPage = None
         self.TileCache = {}
-        self.Lat, self.Lng ,self.Acc = GetLocation()
+        with open(os.path.join("holotape","config.cfg"), "r") as f:
+            dat = json.load(f)
+            self.ApiKey = dat[0]["GeolocationApiKey"]
+
+        #self.Lat, self.Lng ,self.Acc = GetLocation(self.ApiKey)
         
     def DrawMap(self, screen, rect, lat, lng, zoom=15):
         TileSize = 256
@@ -272,8 +277,11 @@ class Holotape:
                 txt("MAP", (offsetconst + 217, 0), self.font, 24, "underline"),
                 txt("RADIO", (offsetconst + 280, 0), self.font, 24)
             ]
-            self.Lat, self.Lng ,self.Acc = GetLocation()
-            self.DrawMap(self.DrawMap(self.Surface, pygame.Rect(0, 36, self.Surface.get_width(), self.Surface.get_height() - 36), self.Lat, self.Lng))
+            #self.DrawMap(self.DrawMap(self.Surface, pygame.Rect(0, 36, self.Surface.get_width(), self.Surface.get_height() - 36), self.Lat, self.Lng))
+            refresh = button("REFRESH", (400,296), 20, self.font)
+            refresh.draw(self.Surface)
+            if refresh.update():
+                self.Lat, self.Lng ,self.Acc = GetLocation(self.ApiKey)
         elif self.PageNum == 4:
             txtlist = [
                 txt("STAT", (offsetconst, 0), self.font, 24),

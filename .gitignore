@@ -1,3 +1,4 @@
 /holotape/radio/playlists/*
 /holotape/radio/songs/*
 /holotape/__pycache__
+/holotape/config.cfg
